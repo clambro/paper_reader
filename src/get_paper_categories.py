@@ -14,14 +14,14 @@ import config
 logging.basicConfig(level=logging.INFO)
 
 SYSTEM_PROMPT = """
-You are a bot designed to categorize machine learning papers given basic information about them. Good categories are
-1-2 words long and never more than 3 words long. Here are some examples of good, general paper categories:
+You are a Python bot designed to categorize machine learning papers given basic information about them. Good categories
+are 1-2 words long and never more than 3 words long. Here are some examples of good, general paper categories:
 - Adversarial Learning
 - Attention
-- Multi-Armed Bandits
+- Bandit Methods
 - Bayesian Methods
 - Biology
-- Causal Learning
+- Causal Analysis
 - Clustering
 - Computer Vision
 - Chemistry
@@ -31,6 +31,7 @@ You are a bot designed to categorize machine learning papers given basic informa
 - Generative Models
 - Graph Neural Networks
 - Knowledge Retrieval
+- Mathematical Analysis
 - Metrics
 - Natural Language Processing
 - Online Learning
@@ -61,13 +62,16 @@ def main(data_folder):
     for titles, highlights in tqdm(list(zip(title_groups, highlight_groups))):
         paper_info = '\n-----\n'.join('Title: ' + titles + '\nHighlight: ' + highlights)
 
+        # The titles returned by GPT are not used in the code, but they improve model performance.
         user_prompt = f"""
 Consider the following list of {len(titles)} machine learning paper titles and highlights:
 -----
 {paper_info}
 -----
-For each machine learning paper in the above list, assign a general category of research to which it belongs. Return
-your results as a Python list of categories in the same order as the papers above with no additional commentary.
+For each machine learning paper in the above list, assign a general category of research to which it belongs. Your
+response must be a Python list of {len(titles)} tuples (title, category) in the same order as the papers above. Sample
+response for 2 papers:
+[("title 1", "category1"), ("title 2", "category2")]
 """
         acc = 0
         while True:
@@ -79,26 +83,35 @@ your results as a Python list of categories in the same order as the papers abov
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
-                "max_tokens": 256,
+                "max_tokens": 400,
                 "temperature": 0,
             }
-            response = requests.post(config.OPENAI_URL, headers=config.OPENAI_HEADERS, json=req)
+            try:
+                response = requests.post(config.OPENAI_URL, headers=config.OPENAI_HEADERS, json=req, timeout=30)
+            except requests.exceptions.ReadTimeout:
+                logging.warning('Request timed out. Pausing and trying again.')
+                time.sleep(3)
+                acc += 1
+                continue
             try:
                 response = response.json()["choices"][0]["message"]["content"]
                 break
             except KeyError:
-                if response.status_code == 429:
-                    logging.info('OpenAI API is overloaded. Pausing before trying again.')
+                if response.status_code in (429, 503):
+                    # TODO: This is not sufficient. Status code 429 is used for multiple things.
+                    logging.warning('OpenAI API is overloaded. Pausing before trying again.')
                     time.sleep(3)
                     acc += 1
                 else:
-                    logging.exception(f'Got response code {response.status_code} with response {response.json()}')
+                    logging.error(f'Got response code {response.status_code} with response {response.json()}')
                     raise ConnectionRefusedError(f'Response code {response.status_code}')
 
         try:
             response = ast.literal_eval(response)
-            categories += response
-        except SyntaxError:
+            assert len(response) == len(titles)
+            categories += list(zip(*response))[1]  # Ignore the titles.
+        except (SyntaxError, AssertionError):
+            logging.warning(f'Syntax error. Response was: {response}')
             categories += len(titles) * ['ERROR']
 
     logging.info('Deduplicating categories.')
