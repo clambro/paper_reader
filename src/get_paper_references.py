@@ -8,6 +8,7 @@ import requests
 from lxml import html
 from tqdm import tqdm
 
+import config
 
 logging.basicConfig(level=logging.INFO)
 
@@ -46,7 +47,7 @@ def main(paperdigest_url, output_folder):
 
     df = pd.DataFrame(output, columns=['title', 'url', 'highlight'])
 
-    output_path = os.path.join(output_folder, 'raw_paperdigest_data.csv')
+    output_path = os.path.join(output_folder, config.RAW_DATA_FILENAME)
     df.to_csv(output_path, index=False)
 
 
