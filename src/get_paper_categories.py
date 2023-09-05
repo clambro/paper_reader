@@ -45,22 +45,29 @@ You are a bot designed to categorize machine learning papers given basic informa
 
 def main(data_folder):
     raw_data_path = os.path.join(data_folder, config.RAW_DATA_FILENAME)
+    logging.info(f'Loading raw data from "{raw_data_path}"')
     df = pd.read_csv(raw_data_path)
 
-    categories = []
-    title_groups = np.array_split(df['title'].values, len(df) // config.TITLES_PER_PROMPT + 1)
-    highlight_groups = np.array_split(df['highlight'].values, len(df) // config.TITLES_PER_PROMPT + 1)
+    num_splits = len(df) // config.TITLES_PER_PROMPT + 1
+    logging.info(
+        f'Found {len(df)} papers. Splitting them into {num_splits} groups of at most {config.TITLES_PER_PROMPT}.'
+    )
 
+    title_groups = np.array_split(df['title'].values, num_splits)
+    highlight_groups = np.array_split(df['highlight'].values, num_splits)
+
+    logging.info(f'Getting categories from each group.')
+    categories = []
     for titles, highlights in tqdm(list(zip(title_groups, highlight_groups))):
         paper_info = '\n-----\n'.join('Title: ' + titles + '\nHighlight: ' + highlights)
 
-        paper_prompt = f"""
+        user_prompt = f"""
 Consider the following list of {len(titles)} machine learning paper titles and highlights:
 -----
 {paper_info}
 -----
-For each machine learning paper in the above list, assign a general category of research to which it belongs.
-Return your results as a Python list of categories in the same order as the list above with no additional commentary.
+For each machine learning paper in the above list, assign a general category of research to which it belongs. Return
+your results as a Python list of categories in the same order as the papers above with no additional commentary.
 """
         acc = 0
         while True:
@@ -70,19 +77,23 @@ Return your results as a Python list of categories in the same order as the list
                 "model": "gpt-3.5-turbo",
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": paper_prompt},
+                    {"role": "user", "content": user_prompt},
                 ],
                 "max_tokens": 256,
                 "temperature": 0,
             }
-            response = requests.post(config.OPENAI_URL, headers=config.OPENAI_HEADERS, json=req).json()
+            response = requests.post(config.OPENAI_URL, headers=config.OPENAI_HEADERS, json=req)
             try:
-                response = response["choices"][0]["message"]["content"]
+                response = response.json()["choices"][0]["message"]["content"]
                 break
-            except KeyError:  # API is overloaded.
-                print('Overloaded. Trying again.')
-                time.sleep(3)
-                acc += 1
+            except KeyError:
+                if response.status_code == 429:
+                    logging.info('OpenAI API is overloaded. Pausing before trying again.')
+                    time.sleep(3)
+                    acc += 1
+                else:
+                    logging.exception(f'Got response code {response.status_code} with response {response.json()}')
+                    raise ConnectionRefusedError(f'Response code {response.status_code}')
 
         try:
             response = ast.literal_eval(response)
@@ -90,6 +101,7 @@ Return your results as a Python list of categories in the same order as the list
         except SyntaxError:
             categories += len(titles) * ['ERROR']
 
+    logging.info('Deduplicating categories.')
     # Simple deduplication.
     clean_categories = []
     for cat in categories:
@@ -100,11 +112,15 @@ Return your results as a Python list of categories in the same order as the list
 
     df['category'] = clean_categories
     output_path_all = os.path.join(data_folder, 'categorized_papers.csv')
+    logging.info('Saving paper dataframe with categories.')
     df.to_csv(output_path_all, index=False)
 
+    logging.info('Calculating distinct categories.')
     distinct_categories, category_counts = np.unique(df['category'], return_counts=True)
-    distinct_df = pd.DataFrame([distinct_categories, category_counts], columns=['category', 'count'])
+    distinct_df = pd.DataFrame({'category': distinct_categories, 'count': category_counts})
+
     output_path_distinct = os.path.join(data_folder, 'distinct_categories.csv')
+    logging.info('Saving distinct category dataframe.')
     distinct_df.to_csv(output_path_distinct, index=False)
 
 
