@@ -124,7 +124,7 @@ response for 2 papers:
         clean_categories.append(cat)
 
     df['category'] = clean_categories
-    output_path_all = os.path.join(data_folder, 'categorized_papers.csv')
+    output_path_all = os.path.join(data_folder, config.CATEGORIZED_DATA_FILENAME)
     logging.info('Saving paper dataframe with categories.')
     df.to_csv(output_path_all, index=False)
 
@@ -132,7 +132,7 @@ response for 2 papers:
     distinct_categories, category_counts = np.unique(df['category'], return_counts=True)
     distinct_df = pd.DataFrame({'category': distinct_categories, 'count': category_counts})
 
-    output_path_distinct = os.path.join(data_folder, 'distinct_categories.csv')
+    output_path_distinct = os.path.join(data_folder, config.DISTINCT_CATEGORIES_FILENAME)
     logging.info('Saving distinct category dataframe.')
     distinct_df.to_csv(output_path_distinct, index=False)
 
