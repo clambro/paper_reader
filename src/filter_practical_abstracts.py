@@ -19,7 +19,7 @@ You are a Python bot designed to categorize machine learning papers as practical
 information about them. A practical paper is one that an experienced machine learning engineer might reasonably
 implement in production code at a major tech company. Impractical papers are ones that would never be used in industry.
 Simple techniques are likely practical. Dense mathematical proofs are likely impractical. You will be asked to reason
-out why the paper given to you is practical or not based on some guiding questions, then make your final decision. 
+out whether the paper given to you is practical or not based on some guiding questions, then make your final decision. 
 """
 
 
@@ -45,12 +45,10 @@ Title: {row['title']}
 Abstract: {abstract}
 -----
 Answer the following questions:
-1. Does this paper describe a practical technique? Answer no if the paper is highly theoretical. Explain your reasoning.
-2. Does this paper have a real-world use case in the tech industry? Answer no if the use case is theoretical. Explain
-your reasoning.
-3. Could an experienced machine learning engineer understand this paper? Explain your reasoning.
-4. Could an experienced machine learning engineer implement the content of this paper in production code? Explain your
-reasoning.
+1. Does this paper describe a practical technique? Answer no if the paper is highly theoretical.
+2. Does this paper have a real-world use case in the tech industry? Answer no if the use case is theoretical.
+3. Could an experienced machine learning engineer understand this paper?
+4. Could an experienced machine learning engineer implement the content of this paper in production code?
 
 Practical papers answer "yes" to the above questions.
 Impractical papers answer "no" to the above questions.
@@ -59,14 +57,14 @@ Impractical papers answer "no" to the above questions.
 
 Your response must be in list format, and the final element must be a binary integer. For example:
 [
- "response to question 1 with reasoning",
- "response to question 2 with reasoning",
- "response to question 3 with reasoning",
- "response to question 4 with reasoning",
+ "brief response to question 1 with reasoning",
+ "brief response to question 2 with reasoning",
+ "brief response to question 3 with reasoning",
+ "brief response to question 4 with reasoning",
  0
 ]
 """
-        response = utils.prompt_chat_gpt(SYSTEM_PROMPT, user_prompt, 400)
+        response = utils.prompt_chat_gpt(SYSTEM_PROMPT, user_prompt, 500)
 
         try:
             response = ast.literal_eval(response)
