@@ -2,14 +2,13 @@ import argparse
 import ast
 import logging
 import os
-import time
 
 import numpy as np
 import pandas as pd
-import requests
 from tqdm import tqdm
 
 import config
+import utils
 
 logging.basicConfig(level=logging.INFO)
 
@@ -73,38 +72,7 @@ response must be a Python list of {len(titles)} tuples (title, category) in the 
 response for 2 papers:
 [("title 1", "category1"), ("title 2", "category2")]
 """
-        acc = 0
-        while True:
-            if acc > 5:
-                raise ConnectionRefusedError('Model is overloaded.')
-            req = {
-                "model": "gpt-3.5-turbo",
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "max_tokens": 400,
-                "temperature": 0,
-            }
-            try:
-                response = requests.post(config.OPENAI_URL, headers=config.OPENAI_HEADERS, json=req, timeout=30)
-            except requests.exceptions.ReadTimeout:
-                logging.warning('Request timed out. Pausing and trying again.')
-                time.sleep(3)
-                acc += 1
-                continue
-            try:
-                response = response.json()["choices"][0]["message"]["content"]
-                break
-            except KeyError:
-                if response.status_code in (429, 503):
-                    # TODO: This is not sufficient. Status code 429 is used for multiple things.
-                    logging.warning('OpenAI API is overloaded. Pausing before trying again.')
-                    time.sleep(3)
-                    acc += 1
-                else:
-                    logging.error(f'Got response code {response.status_code} with response {response.json()}')
-                    raise ConnectionRefusedError(f'Response code {response.status_code}')
+        response = utils.prompt_chat_gpt(SYSTEM_PROMPT, user_prompt, 400)
 
         try:
             response = ast.literal_eval(response)
