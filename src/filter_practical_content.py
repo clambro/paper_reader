@@ -1,12 +1,12 @@
 import argparse
 import ast
+import io
 import logging
 import os
-import re
 
+import fitz
 import pandas as pd
 import requests
-from lxml import html
 from tqdm import tqdm
 
 import config
@@ -24,30 +24,50 @@ out whether the paper given to you is practical or not based on some guiding que
 
 
 def main(data_folder):
-    filtered_paper_path = os.path.join(data_folder, config.FILTERED_CATEGORIES_FILENAME)
-    logging.info(f'Loading raw data from "{filtered_paper_path}"')
-    df = pd.read_csv(filtered_paper_path)
+    filtered_abstract_path = os.path.join(data_folder, config.ABSTRACTS_FILENAME)
+    logging.info(f'Loading raw data from "{filtered_abstract_path}"')
+    df = pd.read_csv(filtered_abstract_path).query('abs_binary != 0')
 
-    logging.info(f'Pulling abstracts and estimating practicality.')
+    logging.info(f'Pulling content and estimating practicality.')
     output = []
     for _, row in tqdm(list(df.iterrows())):
         # TODO: This assumes the paper is on OpenReview, which is not generally the case.
-        paper_html = html.fromstring(requests.get(row['url']).content)
-        paper_html.xpath('//div/preceding-sibling::strong[text()="Abstract"]')
+        response = requests.get(row['url'].replace('/forum?', '/pdf?')).content
+        pdf = io.BytesIO(response)
+        text = []
+        with fitz.open(stream=pdf) as doc:
+            for page in doc:
+                page_text = page.get_text()
+                text.append(page_text)
+                if 'References' in page_text:
+                    break  # Skip everything after the references.
+        text = '\n'.join(text[1:])  # Skip the first page. We already have the abstract.
 
-        abstract = paper_html.xpath('//main/div/div/div[4]')[0].text_content()
-        abstract = re.search('Abstract: (.+)Submission Number:', abstract)[1]
+        snippets = []
+        n = len(text) // 10
+        for i in range(10):
+            sub_text = text[i * n:i * n + 500]
+            snippets.append(sub_text)
+        snippets = '\n----------\n'.join(snippets)
 
         user_prompt = f"""
-Consider the following machine learning paper title and abstract:
------
+Consider the following machine learning paper title, abstract, and snippets:
+----------
 Title: {row['title']}
-Abstract: {abstract}
------
+Abstract: {row['abstract']}
+
+BEGINNING OF PAPER SNIPPETS
+
+----------
+{snippets}
+----------
+
+END OF PAPER SNIPPETS
+
 Answer the following questions:
-1. Does this paper describe a practical technique? Answer no if the paper is highly theoretical.
-2. Does this paper have a real-world use case in the tech industry? Answer no if the use case is theoretical.
-3. Could an experienced machine learning engineer understand this paper?
+1. Does this paper contain code, algorithms, or repositories?
+2. Does this paper contain useful figures and tables?
+3. Does this paper describe a practical technique? Answer no if the paper is mostly dense mathematical proofs.
 4. Could an experienced machine learning engineer implement the content of this paper in production code?
 
 Practical papers answer "yes" to the above questions.
@@ -71,28 +91,32 @@ Your response must be in list format, and the final element must be a binary int
         try:
             response = ast.literal_eval(response)
             assert len(response) == 5
-            output.append([abstract] + response)
+            output.append(response)
         except (SyntaxError, AssertionError):
             logging.warning(f'Syntax error. Response was: {response}')
-            output.append([abstract, 'ERROR', 'ERROR', 'ERROR', 'ERROR', -9999])
+            output.append(['ERROR', 'ERROR', 'ERROR', 'ERROR', -9999])
 
     logging.info('Constructing output dataframe.')
     output_df = pd.DataFrame(
         output,
         columns=[
-            'abstract', 'abs_practical', 'abs_use_case', 'abs_understand', 'abs_implement', 'abs_binary'
+            'content_code', 'content_figures', 'content_technique', 'content_implement', 'content_binary'
         ]
     )
-    abstract_df = df.copy()
-    abstract_df.reset_index(drop=True, inplace=True)
+    practical_df = df.copy()
+    practical_df.reset_index(drop=True, inplace=True)
     output_df.reset_index(drop=True, inplace=True)
-    abstract_df = pd.concat([abstract_df, output_df], axis=1)
+    practical_df = pd.concat([practical_df, output_df], axis=1)
 
-    logging.info(f'Found {sum(abstract_df["abs_binary"]):g} practical abstracts out of {len(df)} papers.')
+    logging.info(f'Found {sum(practical_df["content_binary"]):g} practical papers out of {len(df)} total papers.')
 
-    output_path = os.path.join(data_folder, config.ABSTRACTS_FILENAME)
-    logging.info('Saving paper dataframe with abstracts and practicality.')
-    abstract_df.to_csv(output_path, index=False)
+    all_content_path = os.path.join(data_folder, config.CONTENT_FILENAME)
+    logging.info('Saving paper dataframe with content practicality.')
+    practical_df.to_csv(all_content_path, index=False)
+
+    filtered_content_path = os.path.join(data_folder, config.FILTERED_CONTENT_FILENAME)
+    logging.info('Saving final practical paper list.')
+    practical_df.query('content_binary == 1').to_csv(filtered_content_path, index=False)
 
 
 if __name__ == '__main__':
