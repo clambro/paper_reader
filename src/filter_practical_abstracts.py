@@ -65,6 +65,8 @@ Your response must be in list format, and the final element must be a binary int
 ]
 """
         response = utils.prompt_chat_gpt(SYSTEM_PROMPT, user_prompt, 500)
+        # Make sure that quotes inside the strings don't crash the evaluation.
+        response = response.replace('\n "', '\n """').replace('",\n', '""",\n')
 
         try:
             response = ast.literal_eval(response)

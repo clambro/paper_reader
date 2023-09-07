@@ -26,7 +26,7 @@ out whether the paper given to you is practical or not based on some guiding que
 def main(data_folder):
     filtered_abstract_path = os.path.join(data_folder, config.ABSTRACTS_FILENAME)
     logging.info(f'Loading raw data from "{filtered_abstract_path}"')
-    df = pd.read_csv(filtered_abstract_path).query('abs_binary == 1').iloc[5:10]
+    df = pd.read_csv(filtered_abstract_path).query('abs_binary != 0')
 
     logging.info(f'Pulling content and estimating practicality.')
     output = []
@@ -44,14 +44,14 @@ def main(data_folder):
         text = '\n'.join(text[1:])  # Skip the first page. We already have the abstract.
 
         snippets = []
-        n = len(text) // 5
-        for i in range(5):
-            sub_text = text[i * n:i * n + 1000]
+        n = len(text) // 10
+        for i in range(10):
+            sub_text = text[i * n:i * n + 500]
             snippets.append(sub_text)
         snippets = '\n----------\n'.join(snippets)
 
         user_prompt = f"""
-Consider the following machine learning paper title and abstract:
+Consider the following machine learning paper title, abstract, and snippets:
 ----------
 Title: {row['title']}
 Abstract: {row['abstract']}
@@ -65,7 +65,7 @@ BEGINNING OF PAPER SNIPPETS
 END OF PAPER SNIPPETS
 
 Answer the following questions:
-1. Does this paper contain references to code, algorithms or repositories?
+1. Does this paper contain code, algorithms, or repositories?
 2. Does this paper contain useful figures and tables?
 3. Does this paper describe a practical technique? Answer no if the paper is mostly dense mathematical proofs.
 4. Could an experienced machine learning engineer implement the content of this paper in production code?
@@ -85,6 +85,8 @@ Your response must be in list format, and the final element must be a binary int
 ]
 """
         response = utils.prompt_chat_gpt(SYSTEM_PROMPT, user_prompt, 500)
+        # Make sure that quotes inside the strings don't crash the evaluation.
+        response = response.replace('\n "', '\n """').replace('",\n', '""",\n')
 
         try:
             response = ast.literal_eval(response)
