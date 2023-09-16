@@ -41,11 +41,11 @@ def main(paperdigest_url, output_folder):
         title = row.xpath('a/b/text()')[0]
         paperdigest_url = row.xpath('a/@href')[0]
         url_slug = re.search('forum-id-(.+?)-', paperdigest_url)[1]
-        url = 'https://openreview.net/forum?id=' + url_slug
-        highlight = row.xpath('small/i/text()')[0][2:]  # Text starts with ": "
-        output.append((title, url, highlight))
+        abstract_url = 'https://openreview.net/forum?id=' + url_slug
+        pdf_url = 'https://openreview.net/pdf?id=' + url_slug
+        output.append((title, abstract_url, pdf_url))
 
-    df = pd.DataFrame(output, columns=['title', 'url', 'highlight'])
+    df = pd.DataFrame(output, columns=['title', 'abstract_url', 'pdf_url'])
 
     output_path = os.path.join(output_folder, config.RAW_DATA_FILENAME)
     df.to_csv(output_path, index=False)
