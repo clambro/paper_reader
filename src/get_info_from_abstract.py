@@ -140,12 +140,11 @@ def main(data_folder):
         clean_categories.append(cat)
     abstract_df["category"] = clean_categories
 
-    output_path_all = os.path.join(data_folder, 'all_abstracts.csv')
+    output_path_all = os.path.join(data_folder, config.ALL_ABSTRACT_FILENAME)
     logging.info('Saving entire dataframe.')
     abstract_df.to_csv(output_path_all, index=False)
 
-    # TODO: Edit the config files for all these paths and add numbers.
-    output_path_practical = os.path.join(data_folder, 'practical_abstracts.csv')
+    output_path_practical = os.path.join(data_folder, config.PRACTICAL_ABSTRACT_FILENAME)
     logging.info('Saving practical dataframe.')
     abstract_df.query('abs_binary != 0').to_csv(output_path_practical, index=False)
 

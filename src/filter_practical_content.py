@@ -24,7 +24,7 @@ out whether the paper given to you is practical or not based on some guiding que
 
 
 def main(data_folder):
-    filtered_abstract_path = os.path.join(data_folder, config.ABSTRACTS_FILENAME)
+    filtered_abstract_path = os.path.join(data_folder, config.FILTERED_CATEGORIES_FILENAME)
     logging.info(f'Loading raw data from "{filtered_abstract_path}"')
     df = pd.read_csv(filtered_abstract_path).query('abs_binary != 0')
 
@@ -110,11 +110,11 @@ Your response must be in list format, and the final element must be a binary int
 
     logging.info(f'Found {sum(practical_df["content_binary"]):g} practical papers out of {len(df)} total papers.')
 
-    all_content_path = os.path.join(data_folder, config.CONTENT_FILENAME)
+    all_content_path = os.path.join(data_folder, config.ALL_CONTENT_FILENAME)
     logging.info('Saving paper dataframe with content practicality.')
     practical_df.to_csv(all_content_path, index=False)
 
-    filtered_content_path = os.path.join(data_folder, config.FILTERED_CONTENT_FILENAME)
+    filtered_content_path = os.path.join(data_folder, config.PRACTICAL_CONTENT_FILENAME)
     logging.info('Saving final practical paper list.')
     practical_df.query('content_binary == 1').to_csv(filtered_content_path, index=False)
 

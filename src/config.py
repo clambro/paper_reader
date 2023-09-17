@@ -1,13 +1,12 @@
 import os
 
-RAW_DATA_FILENAME = 'raw_paperdigest_data.csv'
-CATEGORIZED_DATA_FILENAME = 'categorized_papers.csv'
-DISTINCT_CATEGORIES_FILENAME = 'distinct_categories.csv'
-FILTERED_CATEGORIES_FILENAME = 'categorized_and_filtered_papers.csv'
-ABSTRACTS_FILENAME = 'abstract_practicality.csv'
-CONTENT_FILENAME = 'content_practicality.csv'
-FILTERED_CONTENT_FILENAME = 'final_paper_list.csv'
-TITLES_PER_PROMPT = 10  # The model becomes less reliable if you go above 10 papers, even with a 16k context window.
+RAW_DATA_FILENAME = '00_raw_paperdigest_papers.csv'
+ALL_ABSTRACT_FILENAME = '01_all_abstract_papers.csv'
+PRACTICAL_ABSTRACT_FILENAME = '02_practical_abstract_papers.csv'
+DISTINCT_CATEGORIES_FILENAME = '03_distinct_categories.csv'
+FILTERED_CATEGORIES_FILENAME = '04_filtered_category_papers.csv'
+ALL_CONTENT_FILENAME = '05_all_content_papers.csv'
+PRACTICAL_CONTENT_FILENAME = '06_practical_content_papers.csv'
 
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 OPENAI_HEADERS = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"}

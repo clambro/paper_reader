@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main(data_folder):
-    paper_category_path = os.path.join(data_folder, config.CATEGORIZED_DATA_FILENAME)
+    paper_category_path = os.path.join(data_folder, config.PRACTICAL_ABSTRACT_FILENAME)
     logging.info(f'Loading paper category data from "{paper_category_path}"')
     paper_df = pd.read_csv(paper_category_path)
     logging.info(f'Found {len(paper_df)} papers with {paper_df["category"].nunique()} distinct categories.')
