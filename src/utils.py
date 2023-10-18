@@ -38,7 +38,7 @@ def prompt_chat_gpt(system_prompt, user_prompt, max_tokens):
             "temperature": 0,
         }
         try:
-            response = requests.post(config.OPENAI_URL, headers=config.OPENAI_HEADERS, json=req, timeout=30)
+            response = requests.post(config.OPENAI_URL, headers=config.OPENAI_HEADERS, json=req, timeout=60)
         except requests.exceptions.ReadTimeout:
             logging.warning('Request timed out. Pausing and trying again.')
             time.sleep(3)

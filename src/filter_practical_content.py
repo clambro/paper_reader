@@ -26,22 +26,26 @@ out whether the paper given to you is practical or not based on some guiding que
 def main(data_folder):
     filtered_abstract_path = os.path.join(data_folder, config.FILTERED_CATEGORIES_FILENAME)
     logging.info(f'Loading raw data from "{filtered_abstract_path}"')
-    df = pd.read_csv(filtered_abstract_path).query('abs_binary != 0')
+    df = pd.read_csv(filtered_abstract_path)
 
     logging.info(f'Pulling content and estimating practicality.')
     output = []
     for _, row in tqdm(list(df.iterrows())):
-        # TODO: This assumes the paper is on OpenReview, which is not generally the case.
-        response = requests.get(row['url'].replace('/forum?', '/pdf?')).content
-        pdf = io.BytesIO(response)
-        text = []
-        with fitz.open(stream=pdf) as doc:
-            for page in doc:
-                page_text = page.get_text()
-                text.append(page_text)
-                if 'References' in page_text:
-                    break  # Skip everything after the references.
-        text = '\n'.join(text[1:])  # Skip the first page. We already have the abstract.
+        try:
+            response = requests.get(row['pdf_url'], timeout=60).content
+            pdf = io.BytesIO(response)
+            text = []
+            with fitz.open(stream=pdf) as doc:
+                for page in doc:
+                    page_text = page.get_text()
+                    text.append(page_text)
+                    if 'References' in page_text:
+                        break  # Skip everything after the references.
+            text = '\n'.join(text[1:])  # Skip the first page. We already have the abstract.
+        except Exception as e:
+            output.append(['ERROR', 'ERROR', 'ERROR', 'ERROR', -9999])
+            print(e)
+            continue
 
         snippets = []
         n = len(text) // 10
@@ -84,16 +88,16 @@ Your response must be in list format, and the final element must be a binary int
  0
 ]
 """
-        response = utils.prompt_chat_gpt(SYSTEM_PROMPT, user_prompt, 500)
-        # Make sure that quotes inside the strings don't crash the evaluation.
-        response = response.replace('\n "', '\n """').replace('",\n', '""",\n')
-
+        response = None
         try:
+            response = utils.prompt_chat_gpt(SYSTEM_PROMPT, user_prompt, 500)
+            # Make sure that quotes inside the strings don't crash the evaluation.
+            response = response.replace('\n "', '\n """').replace('",\n', '""",\n')
             response = ast.literal_eval(response)
             assert len(response) == 5
             output.append(response)
-        except (SyntaxError, AssertionError):
-            logging.warning(f'Syntax error. Response was: {response}')
+        except Exception as e:
+            logging.warning(f'Syntax error. Response was: {response}. Error was {e}')
             output.append(['ERROR', 'ERROR', 'ERROR', 'ERROR', -9999])
 
     logging.info('Constructing output dataframe.')
@@ -108,7 +112,8 @@ Your response must be in list format, and the final element must be a binary int
     output_df.reset_index(drop=True, inplace=True)
     practical_df = pd.concat([practical_df, output_df], axis=1)
 
-    logging.info(f'Found {sum(practical_df["content_binary"]):g} practical papers out of {len(df)} total papers.')
+    logging.info(f'Found {len(practical_df.query("content_binary == 1"))} practical papers in {len(df)} papers.')
+    logging.info(f'Found {len(practical_df.query("content_binary == -9999"))} errors.')
 
     all_content_path = os.path.join(data_folder, config.ALL_CONTENT_FILENAME)
     logging.info('Saving paper dataframe with content practicality.')
@@ -116,7 +121,7 @@ Your response must be in list format, and the final element must be a binary int
 
     filtered_content_path = os.path.join(data_folder, config.PRACTICAL_CONTENT_FILENAME)
     logging.info('Saving final practical paper list.')
-    practical_df.query('content_binary == 1').to_csv(filtered_content_path, index=False)
+    practical_df.query('content_binary != 0').to_csv(filtered_content_path, index=False)
 
 
 if __name__ == '__main__':

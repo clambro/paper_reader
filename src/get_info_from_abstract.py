@@ -45,6 +45,7 @@ general paper categories:
 - Online Learning
 - Physics
 - Privacy
+- Prompt Engineering
 - Reinforcement Learning
 - Statistics
 - Tensors
@@ -88,17 +89,15 @@ Your response must be in list format, and the final element must be a binary int
 def main(data_folder):
     raw_data_path = os.path.join(data_folder, config.RAW_DATA_FILENAME)
     logging.info(f'Loading raw data from "{raw_data_path}"')
-    df = pd.read_csv(raw_data_path).sample(frac=1).iloc[:100]
+    df = pd.read_csv(raw_data_path)
 
     logging.info(f'Pulling abstracts, categorizing, and estimating practicality.')
     output = []
     for _, row in tqdm(list(df.iterrows())):
-        # TODO: This assumes the paper is on OpenReview, which is not generally the case.
-        paper_html = html.fromstring(requests.get(row['abstract_url']).content)
-        paper_html.xpath('//div/preceding-sibling::strong[text()="Abstract"]')
-
-        abstract = paper_html.xpath('//main/div/div/div[4]')[0].text_content()
-        abstract = re.search('Abstract: (.+)Submission Number:', abstract)[1]
+        try:
+            abstract = get_abstract_from_html(row['abstract_url'])
+        except IndexError:
+            abstract = 'Failed to load abstract. Use the paper title to answer the questions.'
 
         user_prompt = USER_PROMPT.format(title=row['title'], abstract=abstract)
         response = utils.prompt_chat_gpt(SYSTEM_PROMPT, user_prompt, 512)
@@ -109,8 +108,8 @@ def main(data_folder):
             response = ast.literal_eval(response)
             assert len(response) == 6
             output.append([abstract] + response)
-            print(row['title'])
-            [print(a) for a in response]
+            # print(row['title'])
+            # [print(a) for a in response]
         except (SyntaxError, AssertionError):
             logging.warning(f'Syntax error. Response was: {response}')
             output.append([abstract, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', -9999])
@@ -156,6 +155,19 @@ def main(data_folder):
     output_path_distinct = os.path.join(data_folder, config.DISTINCT_CATEGORIES_FILENAME)
     logging.info('Saving distinct category dataframe.')
     distinct_df.to_csv(output_path_distinct, index=False)
+
+
+def get_abstract_from_html(abstract_url):
+    paper_html = html.fromstring(requests.get(abstract_url).content)
+    if '.openreview.net' in abstract_url:
+        abstract = paper_html.xpath('//main/div/div/div[4]')[0].text_content()
+        abstract = re.search('Abstract: (.+)Submission Number:', abstract)[1]
+    elif '.aaai.org' in abstract_url:
+        abstract = paper_html.xpath('//section[@class="item abstract"]')[0].text_content()
+        abstract = re.search('[\n\t]+Abstract[\n\t]+(.+)[\n\t]+', abstract)[1]
+    else:
+        raise NotImplementedError(f'URL extraction not implemented for {abstract_url}')
+    return abstract
 
 
 if __name__ == '__main__':
