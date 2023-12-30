@@ -1,6 +1,7 @@
 import argparse
 import ast
 import logging
+import time
 import os
 import re
 
@@ -72,7 +73,7 @@ Answer the following questions:
 Practical papers answer "yes" to questions 3-5.
 Impractical papers answer "no" to questions 3-5.
 
-6. Binarize you answer to question 6 as (1) practical or (0) impractical.
+6. Binarize your answer to question 6 as (1) practical or (0) impractical.
 
 Your response must be in list format, and the final element must be a binary integer. For example:
 [
@@ -157,14 +158,25 @@ def main(data_folder):
     distinct_df.to_csv(output_path_distinct, index=False)
 
 
-def get_abstract_from_html(abstract_url):
-    paper_html = html.fromstring(requests.get(abstract_url).content)
+def get_abstract_from_html(abstract_url, err_flag=0):
+    try:
+        paper_html = html.fromstring(requests.get(abstract_url).content)
+    except requests.exceptions.ConnectionError:
+        if err_flag < 3:
+            print(f'Connection error for URL {abstract_url}. Trying again.')
+            time.sleep(5)
+            return get_abstract_from_html(abstract_url, err_flag + 1)
+        else:
+            print('Too many errors.')
+            raise
     if '.openreview.net' in abstract_url:
         abstract = paper_html.xpath('//main/div/div/div[4]')[0].text_content()
         abstract = re.search('Abstract: (.+)Submission Number:', abstract)[1]
     elif '.aaai.org' in abstract_url:
         abstract = paper_html.xpath('//section[@class="item abstract"]')[0].text_content()
         abstract = re.search('[\n\t]+Abstract[\n\t]+(.+)[\n\t]+', abstract)[1]
+    elif 'aclanthology.org' in abstract_url:
+        abstract = paper_html.xpath('//div[@class="card-body acl-abstract"]/span')[0].text_content()
     else:
         raise NotImplementedError(f'URL extraction not implemented for {abstract_url}')
     return abstract
@@ -173,7 +185,7 @@ def get_abstract_from_html(abstract_url):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--data_folder',
+        'data_folder',
         type=str,
         help='The full path to the folder containing the raw data.'
     )

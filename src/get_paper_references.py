@@ -18,6 +18,7 @@ logging.basicConfig(level=logging.INFO)
 class Websites(str, Enum):
     OPENREVIEW = 'openreview'
     AAAI = 'aaai'
+    ACL_ANTHOLOGY = 'acl_anthology'
 
 
 def main(paperdigest_url, host_website, output_folder):
@@ -67,6 +68,10 @@ def get_urls_from_website(paperdigest_url, host_website):
         response = requests.get(abstract_url)
         pdf_url = html.fromstring(response.content).xpath('//a[@class="obj_galley_link pdf"]/@href')[0]
         time.sleep(0.1)
+    elif host_website == Websites.ACL_ANTHOLOGY:
+        url_slug = re.search(r'paper_id=emnlp-(\d+\.emnlp-\w+\.\d+?)-', paperdigest_url)[1]
+        abstract_url = 'https://aclanthology.org/' + url_slug
+        pdf_url = abstract_url + '.pdf'
     else:
         raise NotImplementedError(f'URL extraction not implemented for {host_website}')
     return abstract_url, pdf_url
@@ -75,17 +80,17 @@ def get_urls_from_website(paperdigest_url, host_website):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--paperdigest_url',
+        'paperdigest_url',
         type=str,
         help='The link to the paperdigest page that lists all the papers for a given conference.'
     )
     parser.add_argument(
-        '--host_website',
+        'host_website',
         type=str,
         help='The website name on which the actual papers are hosted..'
     )
     parser.add_argument(
-        '--output_folder',
+        'output_folder',
         type=str,
         help='The full path to the folder in which the output will be saved.'
     )

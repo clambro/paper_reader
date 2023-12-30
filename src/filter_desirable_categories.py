@@ -32,7 +32,7 @@ def main(data_folder):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--data_folder',
+        'data_folder',
         type=str,
         help='The full path to the folder containing the category data.'
     )

@@ -55,7 +55,7 @@ def main(data_folder):
         snippets = '\n----------\n'.join(snippets)
 
         user_prompt = f"""
-Consider the following machine learning paper title, abstract, and snippets:
+Consider the following machine learning paper title, abstract, and (non-exhaustive) text snippets:
 ----------
 Title: {row['title']}
 Abstract: {row['abstract']}
@@ -72,7 +72,7 @@ Answer the following questions:
 1. Does this paper contain code, algorithms, or repositories?
 2. Does this paper contain useful figures and tables?
 3. Does this paper describe a practical technique? Answer no if the paper is mostly dense mathematical proofs.
-4. Could an experienced machine learning engineer implement the content of this paper in production code?
+4. Could/should an experienced machine learning engineer implement the content of this paper in production code?
 
 Practical papers answer "yes" to the above questions.
 Impractical papers answer "no" to the above questions.
@@ -127,7 +127,7 @@ Your response must be in list format, and the final element must be a binary int
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--data_folder',
+        'data_folder',
         type=str,
         help='The full path to the folder containing the raw data.'
     )

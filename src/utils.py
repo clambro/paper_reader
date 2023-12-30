@@ -29,7 +29,7 @@ def prompt_chat_gpt(system_prompt, user_prompt, max_tokens):
         if acc > 5:
             raise ConnectionRefusedError('Model is overloaded.')
         req = {
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-3.5-turbo-1106",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
